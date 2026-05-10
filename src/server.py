@@ -27,7 +27,10 @@ async def lifespan(app: FastAPI):
         use_doc_unwarping=settings.paddleocr.use_doc_unwarping,
         use_textline_orientation=settings.paddleocr.use_textline_orientation,
         lang=settings.paddleocr.lang,
-        device=settings.paddleocr.device
+        device=settings.paddleocr.device,
+        text_det_thresh=0.1,            # 降低阈值，使文字区域更连接
+        text_det_box_thresh=0.1,        # 降低保留阈值，保留更多过渡框
+        text_det_unclip_ratio=2.0,      # 核心参数：大幅增大扩张系数，让框向外粘连
     )
     yield
     # ---- 清理阶段 ----

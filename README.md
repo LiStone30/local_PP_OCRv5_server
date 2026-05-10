@@ -45,7 +45,7 @@ podman run -d --device nvidia.com/gpu=all --gpus all -p 8118:8118 \
    -v $(pwd)/src:/app/src \
    ppocr_v5_server:latest 
 
-podman exec -it c03173f8dbdb304af8060f82de116303c16bbd85e57d6b664f8ee7503729ba93 bash
+podman exec -it 25bae1cf08efc8e886a662dd78121ecae61b596f43edb03d0d6a99d1b0269957 bash
 
 # 一键启动服务
 
@@ -55,4 +55,4 @@ podman-compose logs -f
 
 podman-compose down
 
-git commit -m "微调了一键启动服务"
+git commit -m "这个服务对 文本分块的问题 效果特别差。一句话 分为3个文本块"
