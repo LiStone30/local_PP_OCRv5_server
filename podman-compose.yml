@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  ppocr-v5-server:
+    image: ppocr_v5_server:latest
+    container_name: ppocr_v5_server
+    ports:
+      - "8118:8118"
+    volumes:
+      - ./models:/app/models
+      - ./src:/app/src
+    # GPU 访问（对应 --device nvidia.com/gpu=all 和 --gpus all）
+    devices:
+      - nvidia.com/gpu=all
+    # 也可使用 deploy 资源声明，Podman 4.0+ 已支持
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped   # 可选：容器退出后自动重启

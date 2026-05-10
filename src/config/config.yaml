@@ -1,0 +1,12 @@
+paddleocr:
+  text_detection_model_dir: '/app/models/PaddlePaddle/PP-OCRv5_server_det'
+  text_recognition_model_dir: '/app/models/PaddlePaddle/PP-OCRv5_server_rec'
+  use_doc_orientation_classify: false
+  use_doc_unwarping: false
+  use_textline_orientation: false
+  lang: 'ch'
+  device: 'gpu'
+
+server:
+  host: '0.0.0.0'
+  port: 8118
