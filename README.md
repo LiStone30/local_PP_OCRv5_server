@@ -54,3 +54,5 @@ podman-compose up -d
 podman-compose logs -f
 
 podman-compose down
+
+git commit -m "微调了一键启动服务"

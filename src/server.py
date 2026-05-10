@@ -1,3 +1,4 @@
+import signal
 import base64
 from io import BytesIO
 from contextlib import asynccontextmanager
@@ -8,6 +9,8 @@ from paddleocr import PaddleOCR
 from config.settings import get_settings
 from schame.server_data import OCRRequest, OCRResponse, OCRPageResult, OCRWord
 from utils.image_utils import base64_to_pil, pil_to_bgr_array, parse_ocr_result
+import sys
+import uvicorn
 
 
 ocr_instance = None
@@ -27,8 +30,12 @@ async def lifespan(app: FastAPI):
         device=settings.paddleocr.device
     )
     yield
+    # ---- 清理阶段 ----
     ocr_instance = None
-
+    # 强制垃圾回收，释放可能持有的 GPU 资源
+    import gc; gc.collect()
+    # 如果 PaddlePaddle 提供了清理 API，可在此调用
+    # import paddle; paddle.device.cuda.empty_cache()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -46,7 +53,21 @@ async def ocr_image(request: OCRRequest):
 
 
 if __name__ == "__main__":
-    import uvicorn
     settings = get_settings()
-    uvicorn.run(app, host=settings.server.host, port=settings.server.port)
+
+    # 注册信号处理函数，确保收到 SIGTERM 时立即退出
+    def handle_sigterm(signum, frame):
+        print("Received SIGTERM, shutting down gracefully...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
+    uvicorn.run(
+        app,
+        host=settings.server.host,
+        port=settings.server.port,
+        log_level="info",
+        # 关键：不使用 reload，且建议将超时时间缩短
+        timeout_graceful_shutdown=10
+    )
 # python /app/src/server.py
