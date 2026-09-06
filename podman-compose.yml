@@ -20,7 +20,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    restart: unless-stopped   # 可选：容器退出后自动重启
+    # 不再设置 restart：服务改为手动拉起（见 start_service.sh），不做任何自动重启
     # 新增这两项 ↓
     stop_signal: SIGTERM      # 明确使用 SIGTERM，与代码一致
     stop_grace_period: 30s     # 给 30 秒优雅退出时间（可根据需要延长）

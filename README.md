@@ -56,3 +56,20 @@ podman-compose logs -f
 podman-compose down
 
 git commit -m "这个服务对 文本分块的问题 效果特别差。一句话 分为3个文本块"
+
+## 手动启动 / 停止服务（当前约定：无任何开机自启 / 自动拉起）
+
+> 服务器上已不再配置开机自启（原 ocr-startup.service 已取消），
+> 容器也未设置 restart 策略（进程退出不会自动重启）。
+> 需要服务时，在服务器上本仓库目录手动执行：
+
+```bash
+# 启动（幂等：已在运行则直接退出；会自动检查模型盘挂载、刷新 CDI 并等待就绪）
+bash start_service.sh
+
+# 停止
+podman-compose down
+
+# 跟踪日志
+podman-compose logs -f
+```
