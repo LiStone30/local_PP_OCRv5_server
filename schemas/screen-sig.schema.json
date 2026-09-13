@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/LiStone30/ui-annotator/schemas/screen-sig.schema.json",
+  "title": "ScreenSignatureFile",
+  "description": "界面签名标注数据文件(sig.json)。结构校验用本 Schema；数值边界/样本存在性/跨屏交叉判定等语义校验见 docs/data-spec.md §6，由校验工具执行。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "screen_id", "samples", "text_tags"],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "不兼容变更时 +1。"
+    },
+    "screen_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "界面 id，小写下划线，同数据集全局唯一。"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "人类可读名，仅展示。"
+    },
+    "transient": {
+      "type": "boolean",
+      "default": false,
+      "description": "过路界面(加载/转场)，永不作为任务目标。"
+    },
+    "description": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "样本截图相对本 sig.json 所在目录的路径，至少 1 张。"
+    },
+    "text_tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/TextTag" },
+      "description": "区域文本标签；语义校验要求至少 1 条 polarity=pos。"
+    },
+    "anchors": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/AnchorEntry" },
+      "description": "锚点框(阶段 B 预留)。"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "编辑元数据(工具写)。"
+    }
+  },
+  "definitions": {
+    "NormBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "y": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      },
+      "description": "归一化矩形(0~1)。约束 x+w<=1、y+h<=1 及数值边界由语义校验执行(与 uiauto NormBox 一致)。"
+    },
+    "TextTag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["box", "expect", "polarity"],
+      "properties": {
+        "tag_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        "box": { "$ref": "#/definitions/NormBox" },
+        "expect": { "type": "string", "minLength": 1 },
+        "polarity": { "enum": ["pos", "neg"] },
+        "mode": { "enum": ["contains", "equals"] },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sample"],
+          "properties": {
+            "sample": { "type": "string" },
+            "ocr_text": { "type": "string" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "description": "标注依据(工具自动填)：参照样本 + 该区域 OCR 实读。"
+        },
+        "comment": { "type": "string" }
+      }
+    },
+    "AnchorEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anchor"],
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+          "description": "锚点名(YOLO 类名/模板注册名)，全局唯一。"
+        },
+        "present": { "type": "boolean", "default": true },
+        "box": { "$ref": "#/definitions/NormBox" },
+        "comment": { "type": "string" }
+      }
+    }
+  }
+}

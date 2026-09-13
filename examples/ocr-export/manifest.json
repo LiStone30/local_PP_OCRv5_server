@@ -1,0 +1,231 @@
+{
+  "export_schema_version": 1,
+  "tool": "ui-annotator@0.1.0",
+  "generated_at": "2026-09-13T07:13:27+08:00",
+  "dataset_root": "D:\\ui-dataset",
+  "output_root": "D:\\ui-dataset\\ocr_export",
+  "dry_run": false,
+  "options": {
+    "scope": "source",
+    "pad_px": 0,
+    "pad_ratio": 0.0,
+    "resize_height": 0,
+    "include_neg": false,
+    "only_screens": []
+  },
+  "totals": {
+    "screens": 2,
+    "failed_screens": 0,
+    "crops": 6,
+    "neg_crops": 0,
+    "skipped_neg": 0,
+    "warnings": 1,
+    "flagged": 1
+  },
+  "files": {
+    "labels": "labels.tsv",
+    "labels_jsonl": "labels.jsonl",
+    "neg_labels_jsonl": null,
+    "charset": "charset.txt",
+    "crops": "crops/",
+    "neg": null
+  },
+  "screens": [
+    {
+      "screen_id": "jianbao",
+      "display_name": "简报",
+      "transient": true,
+      "tags": 1,
+      "samples": 1,
+      "crops": 1,
+      "neg_crops": 0
+    },
+    {
+      "screen_id": "zhujiemian",
+      "display_name": "主界面",
+      "transient": false,
+      "tags": 5,
+      "samples": 2,
+      "crops": 5,
+      "neg_crops": 0
+    }
+  ],
+  "warnings": [
+    "目录 screens/ 没有 sig.json，已跳过"
+  ],
+  "errors": [],
+  "crops": [
+    {
+      "image": "crops/jianbao/t1__jianbao_001.png",
+      "text": "率土简报",
+      "screen_id": "jianbao",
+      "tag_id": "t1",
+      "sample": "shots/jianbao_001.png",
+      "polarity": "pos",
+      "mode": "contains",
+      "box": {
+        "x": 0.4715378079864061,
+        "y": 0.07451146983857264,
+        "w": 0.17417162276975365,
+        "h": 0.08700084961767206
+      },
+      "rect": {
+        "x": 905,
+        "y": 89,
+        "w": 335,
+        "h": 105
+      },
+      "size": {
+        "w": 335,
+        "h": 105
+      },
+      "origin": "reference",
+      "sha1": "e4daffe5c3d517c54e5c6aada94a1cd8253d9624",
+      "ink_ratio": 0.232
+    },
+    {
+      "image": "crops/zhujiemian/t1__zhujiemian_001.png",
+      "text": "武将",
+      "screen_id": "zhujiemian",
+      "tag_id": "t1",
+      "sample": "shots/zhujiemian_001.png",
+      "polarity": "pos",
+      "mode": "contains",
+      "box": {
+        "x": 0.06117247238742565,
+        "y": 0.8262531860662702,
+        "w": 0.026338147833474945,
+        "h": 0.07612574341546302
+      },
+      "rect": {
+        "x": 117,
+        "y": 992,
+        "w": 51,
+        "h": 91
+      },
+      "size": {
+        "w": 51,
+        "h": 91
+      },
+      "origin": "reference",
+      "sha1": "5a40f8e83a6fac6b149e9240cd0f7a59868cbf3e",
+      "ink_ratio": 0.4433
+    },
+    {
+      "image": "crops/zhujiemian/t2__zhujiemian_001.png",
+      "text": "库藏",
+      "screen_id": "zhujiemian",
+      "tag_id": "t2",
+      "sample": "shots/zhujiemian_001.png",
+      "polarity": "pos",
+      "mode": "contains",
+      "box": {
+        "x": 0.11894647408666101,
+        "y": 0.8235344095157179,
+        "w": 0.025488530161427336,
+        "h": 0.08971962616822433
+      },
+      "rect": {
+        "x": 228,
+        "y": 988,
+        "w": 49,
+        "h": 108
+      },
+      "size": {
+        "w": 49,
+        "h": 108
+      },
+      "origin": "reference",
+      "sha1": "554b82164ab026573836859aba01af104520bfb2",
+      "ink_ratio": 0.4973
+    },
+    {
+      "image": "crops/zhujiemian/t3__zhujiemian_001.png",
+      "text": "内政",
+      "screen_id": "zhujiemian",
+      "tag_id": "t3",
+      "sample": "shots/zhujiemian_001.png",
+      "polarity": "pos",
+      "mode": "contains",
+      "box": {
+        "x": 0.1741716227697536,
+        "y": 0.8221750212404418,
+        "w": 0.033984706881903144,
+        "h": 0.09107901444350043
+      },
+      "rect": {
+        "x": 334,
+        "y": 987,
+        "w": 66,
+        "h": 109
+      },
+      "size": {
+        "w": 66,
+        "h": 109
+      },
+      "origin": "reference",
+      "sha1": "80e8a22724123dd9af692e1eb8ebee7ff0fa74fb",
+      "ink_ratio": 0.5933
+    },
+    {
+      "image": "crops/zhujiemian/t4__zhujiemian_001.png",
+      "text": "势力",
+      "screen_id": "zhujiemian",
+      "tag_id": "t4",
+      "sample": "shots/zhujiemian_001.png",
+      "polarity": "pos",
+      "mode": "contains",
+      "box": {
+        "x": 0.23279524214103653,
+        "y": 0.824893797790994,
+        "w": 0.02718776550552251,
+        "h": 0.08564146134239602
+      },
+      "rect": {
+        "x": 447,
+        "y": 990,
+        "w": 52,
+        "h": 103
+      },
+      "size": {
+        "w": 52,
+        "h": 103
+      },
+      "origin": "reference",
+      "sha1": "3f6ea40b4768d8ba50dd3638593a2eac2ff94b1a",
+      "ink_ratio": 0.4805
+    },
+    {
+      "image": "crops/zhujiemian/t5__zhujiemian_001.png",
+      "text": "同盟",
+      "screen_id": "zhujiemian",
+      "tag_id": "t5",
+      "sample": "shots/zhujiemian_001.png",
+      "polarity": "pos",
+      "mode": "contains",
+      "box": {
+        "x": 0.2905692438402719,
+        "y": 0.8221750212404418,
+        "w": 0.0305862361937128,
+        "h": 0.08700084961767203
+      },
+      "rect": {
+        "x": 558,
+        "y": 987,
+        "w": 59,
+        "h": 104
+      },
+      "size": {
+        "w": 59,
+        "h": 104
+      },
+      "origin": "reference",
+      "sha1": "6373b8474d5a1cd83038c39c100b554706c6a6df",
+      "ink_ratio": 0.5508,
+      "flags": [
+        "edge_touch"
+      ]
+    }
+  ],
+  "neg_crops": []
+}

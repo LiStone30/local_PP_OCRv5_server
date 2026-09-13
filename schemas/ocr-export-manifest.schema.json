@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/LiStone30/ui-annotator/schemas/ocr-export-manifest.schema.json",
+  "title": "OcrExportManifest",
+  "description": "OCR 数据集导出的清单文件(manifest.json)。结构校验用本 Schema；文件存在性、行数一致、像素可复算、sha1 一致等语义校验见 docs/ocr-data-spec.md §9，由消费方/校验脚本执行。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "export_schema_version",
+    "tool",
+    "generated_at",
+    "dataset_root",
+    "output_root",
+    "dry_run",
+    "options",
+    "totals",
+    "files",
+    "screens",
+    "warnings",
+    "errors",
+    "crops",
+    "neg_crops"
+  ],
+  "properties": {
+    "export_schema_version": {
+      "const": 1,
+      "description": "导出格式版本；不兼容变更时 +1。"
+    },
+    "tool": {
+      "type": "string",
+      "pattern": "^ui-annotator@.+$",
+      "description": "产出该导出目录的工具与版本，如 ui-annotator@0.1.0。"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "导出时间，ISO 8601 带时区偏移。"
+    },
+    "dataset_root": { "type": "string", "minLength": 1 },
+    "output_root": { "type": "string", "minLength": 1 },
+    "dry_run": {
+      "type": "boolean",
+      "description": "true 表示未落盘（正式导出恒为 false，dry-run 不写 manifest）。"
+    },
+    "options": { "$ref": "#/definitions/Options" },
+    "totals": { "$ref": "#/definitions/Totals" },
+    "files": { "$ref": "#/definitions/Files" },
+    "screens": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ScreenSummary" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "提示级问题（空框、贴边、参照样本缺失等），不阻塞导出。"
+    },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "失败项（界面 sig.json 坏、样本 PNG 读不出等）；非空时导出退出码为 1。"
+    },
+    "crops": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/CropRecord" },
+      "description": "pos 标签裁剪记录，与 labels.tsv / labels.jsonl 一一对应。"
+    },
+    "neg_crops": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/CropRecord" },
+      "description": "neg 标签裁剪记录（仅 --include-neg 时非空），不写入 labels.tsv。"
+    }
+  },
+  "definitions": {
+    "Options": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "pad_px", "pad_ratio", "resize_height", "include_neg", "only_screens"],
+      "properties": {
+        "scope": { "enum": ["source", "all"] },
+        "pad_px": { "type": "integer", "minimum": 0 },
+        "pad_ratio": { "type": "number", "minimum": 0, "exclusiveMaximum": 0.5 },
+        "resize_height": { "type": "integer", "minimum": 0 },
+        "include_neg": { "type": "boolean" },
+        "only_screens": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["screens", "failed_screens", "crops", "neg_crops", "skipped_neg", "warnings", "flagged"],
+      "properties": {
+        "screens": { "type": "integer", "minimum": 0, "description": "成功导出的界面数。" },
+        "failed_screens": { "type": "integer", "minimum": 0, "description": "失败项条数（= errors 长度）。" },
+        "crops": { "type": "integer", "minimum": 0, "description": "pos 裁剪图数量（= crops 长度 = labels.tsv 行数）。" },
+        "neg_crops": { "type": "integer", "minimum": 0 },
+        "skipped_neg": { "type": "integer", "minimum": 0, "description": "因未开 --include-neg 而跳过的 neg 标签数。" },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "flagged": { "type": "integer", "minimum": 0, "description": "带 flags 的记录数（crops + neg_crops）。" }
+      }
+    },
+    "Files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["labels", "labels_jsonl", "neg_labels_jsonl", "charset", "crops", "neg"],
+      "properties": {
+        "labels": { "type": "string", "const": "labels.tsv" },
+        "labels_jsonl": { "type": "string", "const": "labels.jsonl" },
+        "neg_labels_jsonl": {
+          "type": ["string", "null"],
+          "description": "有 neg 产物时为 neg_labels.jsonl，否则为 null。"
+        },
+        "charset": { "type": "string", "const": "charset.txt" },
+        "crops": { "type": "string", "const": "crops/" },
+        "neg": {
+          "type": ["string", "null"],
+          "description": "有 neg 产物时为 neg/，否则为 null。"
+        }
+      }
+    },
+    "ScreenSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["screen_id", "display_name", "transient", "tags", "samples", "crops", "neg_crops"],
+      "properties": {
+        "screen_id": { "$ref": "#/definitions/ScreenId" },
+        "display_name": { "type": "string" },
+        "transient": { "type": "boolean" },
+        "tags": { "type": "integer", "minimum": 0, "description": "该界面 sig.json 里的文本标签总数（含未导出的 neg）。" },
+        "samples": { "type": "integer", "minimum": 0, "description": "该界面样本数。" },
+        "crops": { "type": "integer", "minimum": 0 },
+        "neg_crops": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "CropRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image",
+        "text",
+        "screen_id",
+        "tag_id",
+        "sample",
+        "polarity",
+        "mode",
+        "box",
+        "rect",
+        "size",
+        "origin",
+        "sha1",
+        "ink_ratio"
+      ],
+      "properties": {
+        "image": {
+          "type": "string",
+          "pattern": "^(crops|neg)/.+[.]png$",
+          "description": "裁剪图相对输出根目录的 posix 路径。"
+        },
+        "text": {
+          "type": "string",
+          "description": "标签文本 = sig.json 的 expect 原文（制表符/换行不做替换，TSV 里才替换）。"
+        },
+        "screen_id": { "$ref": "#/definitions/ScreenId" },
+        "tag_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+          "description": "来源标签的 tag_id；sig.json 未写时由工具按 t1/t2… 生成。"
+        },
+        "sample": { "type": "string", "minLength": 1, "description": "来源样本相对 sig.json 的路径。" },
+        "polarity": { "enum": ["pos", "neg"] },
+        "mode": { "enum": ["contains", "equals"] },
+        "box": { "$ref": "#/definitions/NormBox" },
+        "rect": { "$ref": "#/definitions/PixelRect" },
+        "size": { "$ref": "#/definitions/PixelSize" },
+        "origin": {
+          "enum": ["reference", "fallback", "other"],
+          "description": "reference=标注时参照的样本；fallback=标签未记参照样本，退回 samples[0]；other=--scope all 下的其它样本。"
+        },
+        "sha1": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "裁剪图文件字节的 SHA-1（PNG 编码后），用于查重。"
+        },
+        "ink_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/Flag" }
+        },
+        "comment": { "type": "string" }
+      }
+    },
+    "Flag": {
+      "enum": ["blank", "low_ink", "edge_touch", "fallback_sample", "text_sanitized"],
+      "description": "质检标记，阈值与判据见 docs/ocr-data-spec.md §8。"
+    },
+    "NormBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "y": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      },
+      "description": "原始标注框（0~1 归一化，原样搬自 sig.json）。"
+    },
+    "PixelRect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      },
+      "description": "实际裁剪矩形（像素，含 pad，已夹到样本图范围内）。"
+    },
+    "PixelSize": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      },
+      "description": "成图尺寸；未缩放时等于 rect.w/rect.h。"
+    },
+    "ScreenId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    }
+  }
+}

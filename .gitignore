@@ -1,6 +1,36 @@
+# ---------- 模型与运行环境 ----------
 **/models/
 **/.env
 **/__pycache__
-**/*.jpg
-**/t.*
 
+# ---------- 图片 ----------
+**/*.jpg
+
+# ---------- 数据集（一律不入库）----------
+# 原始标注数据集 / ui-annotator 导出产物 / 预处理后的训练数据
+train_data/
+data/
+dataset/
+datasets/
+ui-dataset/
+ocr_export/
+**/ocr_export/
+
+# ---------- 预测与评测结果 ----------
+build/
+eval_report_*.json
+eval_report_*.md
+**/eval_report_*.json
+**/eval_report_*.md
+
+# ---------- 训练产物 ----------
+output/
+outputs/
+*.pdparams
+*.pdopt
+*.pdmodel
+*.pth
+*.onnx
+
+# ---------- 杂项 ----------
+**/t.*
