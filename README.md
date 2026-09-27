@@ -145,6 +145,9 @@ RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/so
     apt-get install -y libglib2.0-0 libgl1 libsm6 libxext6 libxrender-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# 安装 PaddlePaddle CPU 版（自动选择兼容版本）
+RUN pip install paddlepaddle -i https://pypi.tuna.tsinghua.edu.cn/simple
+
 # 安装 Python 依赖
 RUN pip install paddleocr fastapi uvicorn pillow -i https://pypi.tuna.tsinghua.edu.cn/simple
 
@@ -153,14 +156,44 @@ CMD ["python", "/app/src/server.py"]
 EOF
 ```
 
-### 1.5.6 启动 CPU 版服务
+### 1.5.6 同步文件到云服务器
+
+在本地开发机执行，将修改后的文件同步到云服务器：
+
+```bash
+# 同步源代码文件
+rsync -avz --progress \
+  /home/listone/local_PP_OCRv5_server/src/ \
+  root@123.57.209.181:/root/local_PP_OCRv5_server/src/
+
+# 同步模型文件（如需要）
+rsync -avz --progress \
+  /home/listone/local_PP_OCRv5_server/models/ \
+  root@123.57.209.181:/root/local_PP_OCRv5_server/models/
+
+# 同步启动脚本（如需要）
+rsync -avz --progress \
+  /home/listone/local_PP_OCRv5_server/start_service_cpu.sh \
+  root@123.57.209.181:/root/local_PP_OCRv5_server/
+```
+
+**注意**：每次修改代码后，都需要同步文件到云服务器，然后重启服务。
+
+### 1.5.7 启动 CPU 版服务
 
 ```bash
 cd /root/local_PP_OCRv5_server
 bash start_service_cpu.sh
 ```
 
-### 1.5.7 测试服务
+如果服务已在运行，先停止再启动：
+
+```bash
+podman-compose -f podman-compose-cpu.yml down
+bash start_service_cpu.sh
+```
+
+### 1.5.8 测试服务
 
 ```bash
 # 从本地测试
@@ -169,7 +202,7 @@ curl -X POST http://123.57.209.181:8118/ocr \
   -d '{"image": "<base64_image>", "image_type": "png"}'
 ```
 
-### 1.5.8 停止 / 查看日志
+### 1.5.9 停止 / 查看日志
 
 ```bash
 # SSH 登录到 cloudserver
@@ -183,7 +216,7 @@ podman-compose -f podman-compose-cpu.yml down
 podman-compose -f podman-compose-cpu.yml logs -f
 ```
 
-### 1.5.9 性能说明
+### 1.5.10 性能说明
 
 - CPU 模式性能会比 GPU 慢 5-10 倍
 - GPU 版 P50: ~15ms

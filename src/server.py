@@ -1,5 +1,6 @@
 import signal
 import base64
+import logging
 from io import BytesIO
 from contextlib import asynccontextmanager
 from PIL import Image
@@ -12,6 +13,9 @@ from utils.image_utils import base64_to_pil, pil_to_bgr_array, parse_ocr_result
 import sys
 import uvicorn
 
+# 设置日志级别
+logging.getLogger('ppocr').setLevel(logging.WARNING)
+
 
 ocr_instance = None
 
@@ -22,15 +26,13 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     ocr_instance = PaddleOCR(
         text_detection_model_dir=settings.paddleocr.text_detection_model_dir,
+        text_detection_model_name='PP-OCRv5_server_det',
         text_recognition_model_dir=settings.paddleocr.text_recognition_model_dir,
+        text_recognition_model_name='PP-OCRv5_server_rec',
         use_doc_orientation_classify=settings.paddleocr.use_doc_orientation_classify,
         use_doc_unwarping=settings.paddleocr.use_doc_unwarping,
         use_textline_orientation=settings.paddleocr.use_textline_orientation,
-        lang=settings.paddleocr.lang,
         device=settings.paddleocr.device,
-        text_det_thresh=0.1,            # 降低阈值，使文字区域更连接
-        text_det_box_thresh=0.1,        # 降低保留阈值，保留更多过渡框
-        text_det_unclip_ratio=2.0,      # 核心参数：大幅增大扩张系数，让框向外粘连
     )
     yield
     # ---- 清理阶段 ----

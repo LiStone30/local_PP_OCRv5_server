@@ -4,7 +4,6 @@ paddleocr:
   use_doc_orientation_classify: false
   use_doc_unwarping: false
   use_textline_orientation: false
-  lang: 'ch'
   device: 'cpu'
 
 server:
