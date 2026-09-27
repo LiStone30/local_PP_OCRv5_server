@@ -1,4 +1,5 @@
 import yaml
+import os
 from pathlib import Path
 from dataclasses import dataclass, fields
 from functools import lru_cache
@@ -37,7 +38,7 @@ class Settings:
     _instance = None
 
     def __init__(self):
-        config_path = Path(__file__).parent / 'config.yaml'
+        config_path = Path(os.environ.get('CONFIG_FILE', Path(__file__).parent / 'config.yaml'))
         self._config = load_yaml_config(config_path)
         self.paddleocr = parse_dataclass_from_dict(PaddleOCRConfig, self._config.get('paddleocr', {}))
         self.server = parse_dataclass_from_dict(ServiceConfig, self._config.get('server', {}))

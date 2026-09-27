@@ -13,6 +13,8 @@ ui-annotator(GUI) ──导出──> D:\ui-dataset\ocr_export
                             同步到训练机 → PPOCR 训练
 
 [本机] eval_rec_service.py ──POST /ocr──> [服务器 192.168.50.2] ppocr_v5_server 容器（GPU · 8118）
+                                              或
+                                          [云服务器 123.57.209.181] ppocr_v5_server_cpu 容器（CPU · 8118）
 ```
 
 ---
@@ -22,10 +24,11 @@ ui-annotator(GUI) ──导出──> D:\ui-dataset\ocr_export
 | 角色 | 机器 / 地址 | 关键路径 |
 |---|---|---|
 | OCR 服务（GPU） | 服务器 `192.168.50.2`（hostname `k8s-master`），SSH 别名 `localserver` | 部署目录 `/mnt/pssd/remote-project/local_PP_OCRv5_server`；模型 `/mnt/pssd/.../models/PaddlePaddle/PP-OCRv5_server_{det,rec}` |
+| OCR 服务（CPU） | 云服务器 `123.57.209.181`，SSH 别名 `cloudserver` | 部署目录 `/root/local_PP_OCRv5_server`；使用 CPU 模式，性能约为 GPU 的 1/5 ~ 1/10 |
 | 预处理 / 评测 | **本开发机（WSL）** | 本仓库根目录；数据盘 `/mnt/d/ui-dataset`；Python 3.14（脚本只用标准库，无需 venv） |
 | 标注 / 导出 | Windows 上的 ui-annotator | `/home/listone/game-automation/ui-annotator`，数据集 `D:\ui-dataset` |
 
-> 前提：服务器与开发机之间是网线直连（`192.168.50.x`）。SSH 用 `ssh -F ~/.ssh/config localserver`（系统 `/etc/ssh/ssh_config.d` 损坏，必须带 `-F`）。
+> 前提：GPU 服务器与开发机之间是网线直连（`192.168.50.x`）。SSH 用 `ssh -F ~/.ssh/config localserver`（系统 `/etc/ssh/ssh_config.d` 损坏，必须带 `-F`）。
 
 ---
 
@@ -64,16 +67,151 @@ podman-compose logs -f   # 跟踪日志
 
 ### 1.4 接口速查
 
-| 项 | 值 |
-|---|---|
-| 接口 | `POST http://192.168.50.2:8118/ocr` |
-| 请求 | `{"image": "<图片Base64，不带 data: 前缀>", "image_type": "png"}` |
-| 响应 | `{"code":0,"message":"success","data":{"input_path":null,"words":[{"text":"武将","confidence":0.9979,"box":[[0,0],[50,0],[51,84],[0,85]]}]}}` |
-| `box` | 四顶点像素坐标，顺序 左上→右上→右下→左下 |
-| 错误 | 任何异常 → `HTTP 500` + `{"detail": "..."}`，无错误码体系、无部分成功 |
-| 其他 | 单图单请求、无鉴权、无 batch；服务端单例串行（并发请求实际排队） |
+| 项 | GPU 版 | CPU 版 |
+|---|--------|--------|
+| 接口 | `POST http://192.168.50.2:8118/ocr` | `POST http://123.57.209.181:8118/ocr` |
+| 请求 | `{"image": "<图片Base64，不带 data: 前缀>", "image_type": "png"}` | 同左 |
+| 响应 | `{"code":0,"message":"success","data":{"input_path":null,"words":[{"text":"武将","confidence":0.9979,"box":[[0,0],[50,0],[51,84],[0,85]]}]}}` | 同左 |
+| `box` | 四顶点像素坐标，顺序 左上→右上→右下→左下 | 同左 |
+| 错误 | 任何异常 → `HTTP 500` + `{"detail": "..."}`，无错误码体系、无部分成功 | 同左 |
+| 其他 | 单图单请求、无鉴权、无 batch；服务端单例串行（并发请求实际排队） | 同左 |
+| 性能 | P50 ~15ms | P50 ~80-150ms（GPU 的 1/5 ~ 1/10） |
 
 ⚠️ **返回的是「文本块」不是「整句」**：整屏实测会把一句话拆成多块。比对时必须先把所有块的 `text` **去掉全部空白再拼接**（见 `docs/ocr-data-spec.md` §10.2）。
+
+---
+
+## 1.5 云服务器 CPU 版部署（可选）
+
+如果需要在无 GPU 的云服务器上部署 CPU 版本，使用以下步骤。
+
+### 1.5.1 目标服务器环境
+
+- **服务器**：cloudserver (123.57.209.181)
+- **操作系统**：Ubuntu 24.04
+- **GPU**：无（使用 CPU 模式）
+- **容器运行时**：Podman
+
+### 1.5.2 在目标服务器安装 Podman
+
+```bash
+# SSH 登录到 cloudserver
+ssh -F ~/.ssh/config cloudserver
+
+# 安装 Podman
+sudo apt update
+sudo apt install -y podman podman-compose
+
+# 验证安装
+podman --version
+podman-compose --version
+```
+
+### 1.5.3 传输文件到目标服务器
+
+```bash
+# 在本地执行
+rsync -avz --progress \
+  /home/listone/local_PP_OCRv5_server/ \
+  cloudserver:/root/local_PP_OCRv5_server/ \
+  --exclude='.git' \
+  --exclude='build' \
+  --exclude='train_data'
+```
+
+### 1.5.4 在目标服务器拉取 CPU 版基础镜像
+
+```bash
+# SSH 登录到 cloudserver
+ssh -F ~/.ssh/config cloudserver
+
+# 拉取 CPU 版镜像（使用 latest-dev 标签）
+podman pull ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddle:latest-dev
+```
+
+### 1.5.5 在目标服务器构建服务镜像
+
+```bash
+cd /root/local_PP_OCRv5_server
+
+# 使用 CPU 版基础镜像构建
+podman build -t ppocr_v5_server:latest -f - . <<EOF
+FROM ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddle:latest-dev
+
+# 安装系统依赖
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y libglib2.0-0 libgl1 libsm6 libxext6 libxrender-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# 安装 Python 依赖
+RUN pip install paddleocr fastapi uvicorn pillow -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+WORKDIR /app
+CMD ["python", "/app/src/server.py"]
+EOF
+```
+
+### 1.5.6 启动 CPU 版服务
+
+```bash
+cd /root/local_PP_OCRv5_server
+bash start_service_cpu.sh
+```
+
+### 1.5.7 测试服务
+
+```bash
+# 从本地测试
+curl -X POST http://123.57.209.181:8118/ocr \
+  -H "Content-Type: application/json" \
+  -d '{"image": "<base64_image>", "image_type": "png"}'
+```
+
+### 1.5.8 停止 / 查看日志
+
+```bash
+# SSH 登录到 cloudserver
+ssh -F ~/.ssh/config cloudserver
+cd /root/local_PP_OCRv5_server
+
+# 停止服务
+podman-compose -f podman-compose-cpu.yml down
+
+# 查看日志
+podman-compose -f podman-compose-cpu.yml logs -f
+```
+
+### 1.5.9 性能说明
+
+- CPU 模式性能会比 GPU 慢 5-10 倍
+- GPU 版 P50: ~15ms
+- CPU 版预计 P50: 80-150ms
+- 首次启动需要加载模型，等待时间较长（约 1-2 分钟）
+
+### 1.5.10 防火墙配置
+
+如果从外网访问，需要开放 8118 端口：
+
+```bash
+# 使用 ufw（Ubuntu 默认防火墙）
+sudo ufw allow 8118/tcp
+sudo ufw reload
+
+# 或使用 firewalld
+sudo firewall-cmd --permanent --add-port=8118/tcp
+sudo firewall-cmd --reload
+```
+
+### 1.5.11 配置文件说明
+
+CPU 版本使用独立的配置文件：
+- `src/config/config_cpu.yaml` - CPU 配置（`device: 'cpu'`）
+- `podman-compose-cpu.yml` - CPU 版 Compose 文件（无 GPU 配置）
+- `start_service_cpu.sh` - CPU 版启动脚本（无 GPU 检查）
+
+容器通过环境变量 `CONFIG_FILE` 指定使用 CPU 配置文件。
 
 ---
 

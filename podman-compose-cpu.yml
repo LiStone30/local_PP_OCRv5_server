@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  ppocr-v5-server:
+    image: ppocr_v5_server:latest
+    container_name: ppocr_v5_server_cpu
+    ports:
+      - "8118:8118"
+    volumes:
+      - ./models:/app/models
+      - ./src:/app/src
+    environment:
+      - CONFIG_FILE=/app/src/config/config_cpu.yaml
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
