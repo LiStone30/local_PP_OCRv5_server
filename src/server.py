@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
         use_doc_unwarping=settings.paddleocr.use_doc_unwarping,
         use_textline_orientation=settings.paddleocr.use_textline_orientation,
         device=settings.paddleocr.device,
+        enable_mkldnn=settings.paddleocr.enable_mkldnn,
     )
     yield
     # ---- 清理阶段 ----

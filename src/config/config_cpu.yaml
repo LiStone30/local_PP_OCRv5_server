@@ -5,6 +5,9 @@ paddleocr:
   use_doc_unwarping: false
   use_textline_orientation: false
   device: 'cpu'
+  # 关闭 oneDNN(mkldnn)：paddlepaddle 3.3.x 的 PIR→oneDNN 转换对部分模型报
+  # (Unimplemented) ConvertPirAttribute2RuntimeAttribute not support
+  enable_mkldnn: false
 
 server:
   host: '0.0.0.0'

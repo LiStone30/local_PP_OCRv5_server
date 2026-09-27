@@ -75,7 +75,7 @@ podman-compose logs -f   # 跟踪日志
 | `box` | 四顶点像素坐标，顺序 左上→右上→右下→左下 | 同左 |
 | 错误 | 任何异常 → `HTTP 500` + `{"detail": "..."}`，无错误码体系、无部分成功 | 同左 |
 | 其他 | 单图单请求、无鉴权、无 batch；服务端单例串行（并发请求实际排队） | 同左 |
-| 性能 | P50 ~15ms | P50 ~80-150ms（GPU 的 1/5 ~ 1/10） |
+| 性能 | P50 ~15ms | P50 ~400ms（2 vCPU、关 mkldnn 实测：小裁剪块 ~0.40-0.46s/张，首次请求含预热 ~1.1s） |
 
 ⚠️ **返回的是「文本块」不是「整句」**：整屏实测会把一句话拆成多块。比对时必须先把所有块的 `text` **去掉全部空白再拼接**（见 `docs/ocr-data-spec.md` §10.2）。
 
@@ -145,8 +145,10 @@ RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/so
     apt-get install -y libglib2.0-0 libgl1 libsm6 libxext6 libxrender-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# 安装 PaddlePaddle CPU 版（自动选择兼容版本）
-RUN pip install paddlepaddle -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 安装 PaddlePaddle CPU 版
+# ⚠️ 必须锁版本：paddlepaddle 3.3.x 的 PIR→oneDNN 转换有回归，CPU 推理直接 500
+#    （见 §1.5.12）；要么锁 3.2.2，要么保持新版但关掉 mkldnn
+RUN pip install "paddlepaddle==3.2.2" -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 安装 Python 依赖
 RUN pip install paddleocr fastapi uvicorn pillow -i https://pypi.tuna.tsinghua.edu.cn/simple
@@ -218,10 +220,11 @@ podman-compose -f podman-compose-cpu.yml logs -f
 
 ### 1.5.10 性能说明
 
-- CPU 模式性能会比 GPU 慢 5-10 倍
+- CPU 模式性能会比 GPU 慢 10-30 倍（云服务器 2 vCPU / 1.7G 内存，关 mkldnn）
 - GPU 版 P50: ~15ms
-- CPU 版预计 P50: 80-150ms
+- CPU 版实测（2026-09-27）：小裁剪块（如 120×60）单张 ~400ms；空图（梯度图）~400ms；服务冷启动后首请求 ~1.1s
 - 首次启动需要加载模型，等待时间较长（约 1-2 分钟）
+- 注意 `cpu_threads` 默认 10，而云服务器只有 2 vCPU，线程超配可能拖慢；需要时可显式设小
 
 ### 1.5.10 防火墙配置
 
@@ -240,11 +243,48 @@ sudo firewall-cmd --reload
 ### 1.5.11 配置文件说明
 
 CPU 版本使用独立的配置文件：
-- `src/config/config_cpu.yaml` - CPU 配置（`device: 'cpu'`）
+- `src/config/config_cpu.yaml` - CPU 配置（`device: 'cpu'`、`enable_mkldnn: false`）
 - `podman-compose-cpu.yml` - CPU 版 Compose 文件（无 GPU 配置）
 - `start_service_cpu.sh` - CPU 版启动脚本（无 GPU 检查）
 
 容器通过环境变量 `CONFIG_FILE` 指定使用 CPU 配置文件。
+
+### 1.5.12 已知问题：CPU 版返回 HTTP 500（oneDNN / PIR 回归）
+
+**现象**：服务能起来、`GET /` 正常返回 404，但 `POST /ocr` 一律 500：
+
+```json
+{"detail":"(Unimplemented) ConvertPirAttribute2RuntimeAttribute not support
+ [pir::ArrayAttribute<pir::DoubleAttribute>]
+ (at /paddle/paddle/fluid/framework/new_executor/instruction/onednn/onednn_instruction.cc:116)"}
+```
+
+**原因**：与「CPU/GPU 两套代码」无关，两边是同一份 `src`、同一套 FastAPI + PaddleOCR(PaddleX) + PaddlePaddle 框架，
+差别只在**推理后端**：
+
+| | GPU 版 | CPU 版 |
+|---|---|---|
+| device | `gpu` → PaddleX `run_mode="paddle"`（CUDA 内核） | `cpu` → PaddleX 默认 `run_mode="mkldnn"`（Intel oneDNN） |
+| 是否走 oneDNN 指令转换 | 否（mkldnn 开关在 gpu 分支被忽略） | **是** |
+| 结果 | 正常 | paddlepaddle **3.3.x** 的 PIR→oneDNN 转换器遇到 `ArrayAttribute<DoubleAttribute>` 直接抛 Unimplemented |
+
+即：CPU 版是新装的 `pip install paddlepaddle`（无锁版本 → 拿到 3.3.1）+ `paddleocr 3.7.0`，
+而 PaddleOCR/PaddleX 在 CPU 上**默认开启 mkldnn**（`DEFAULT_ENABLE_MKLDNN = True`），正好踩中上游回归
+（[Paddle#77340](https://github.com/PaddlePaddle/Paddle/issues/77340)：3.2.2 正常、3.3.x 复现；
+PaddleOCR 侧 [Issue#17869](https://github.com/PaddlePaddle/PaddleOCR/issues/17869)）。
+
+**两种修法（二选一）**：
+
+1. **保留 paddlepaddle 3.3.x，关掉 mkldnn**（本次采用，无需重建镜像）：
+   `src/config/config_cpu.yaml` 里 `enable_mkldnn: false`（对应 `src/config/settings.py` 的 `enable_mkldnn` 字段，
+   由 `src/server.py` 传给 `PaddleOCR(...)`）。容器 bind-mount `./src`，改完 `podman restart ppocr_v5_server_cpu` 即生效。
+   - 注意：`FLAGS_use_mkldnn=0` 环境变量**无效**，PaddleX 走自己的 `run_mode`，必须用 `enable_mkldnn` 参数。
+2. **锁 `paddlepaddle==3.2.2` 重建镜像**，保留 mkldnn 加速（性能更好，但本机 1.7G 内存跑 mkldnn 需留意内存）。
+
+> 另注：`paddleocr 3.7.0` 起 `text_det_thresh` / `text_det_box_thresh` / `text_det_unclip_ratio`
+> **不再是 `PaddleOCR(...)` 的构造参数**（改到 predict 阶段/配置里），
+> 所以 `server.py` 里那几个「文本分块」调参已被移除（见 commit `c398d25`）。
+> GPU 版若要用新代码，需要确认它镜像内的 paddleocr 版本，否则原先的调参行为会丢失。
 
 ---
 

@@ -26,6 +26,10 @@ class PaddleOCRConfig:
     use_textline_orientation: bool = True
     lang: str = 'en'
     device: str = 'cpu'
+    # CPU 下 PaddleX 默认走 oneDNN(mkldnn) 后端；paddlepaddle 3.3.x 的 PIR→oneDNN
+    # 指令转换存在回归（ConvertPirAttribute2RuntimeAttribute not support），
+    # 会直接 500。CPU 部署请置 false 走纯 paddle 内核；GPU 部署该开关无影响。
+    enable_mkldnn: bool = True
 
 
 @dataclass
@@ -65,6 +69,7 @@ if __name__ == '__main__':
     print(f"use_textline_orientation: {settings.paddleocr.use_textline_orientation}")
     print(f"lang: {settings.paddleocr.lang}")
     print(f"device: {settings.paddleocr.device}")
+    print(f"enable_mkldnn: {settings.paddleocr.enable_mkldnn}")
     print("\n=== Service Config ===")
     print(f"host: {settings.server.host}")
     print(f"port: {settings.server.port}")
