@@ -21,6 +21,9 @@ def parse_dataclass_from_dict(cls, data: dict):
 class PaddleOCRConfig:
     text_detection_model_dir: str = 'DEFAULT_DET_PATH'
     text_recognition_model_dir: str = 'DEFAULT_REC_PATH'
+    # 模型名必须与上面的 dir 指向同一个模型, 否则 PaddleOCR 会按 name 去找/下载对应模型
+    text_detection_model_name: str = 'PP-OCRv5_server_det'
+    text_recognition_model_name: str = 'PP-OCRv5_server_rec'
     use_doc_orientation_classify: bool = True
     use_doc_unwarping: bool = True
     use_textline_orientation: bool = True

@@ -26,9 +26,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     ocr_instance = PaddleOCR(
         text_detection_model_dir=settings.paddleocr.text_detection_model_dir,
-        text_detection_model_name='PP-OCRv5_server_det',
+        text_detection_model_name=settings.paddleocr.text_detection_model_name,
         text_recognition_model_dir=settings.paddleocr.text_recognition_model_dir,
-        text_recognition_model_name='PP-OCRv5_server_rec',
+        text_recognition_model_name=settings.paddleocr.text_recognition_model_name,
         use_doc_orientation_classify=settings.paddleocr.use_doc_orientation_classify,
         use_doc_unwarping=settings.paddleocr.use_doc_unwarping,
         use_textline_orientation=settings.paddleocr.use_textline_orientation,
