@@ -39,6 +39,11 @@ class PaddleOCRConfig:
 class ServiceConfig:
     host: str = '127.0.0.1'
     port: int = 9000
+    # keep-alive 空闲超时（秒）：uvicorn 默认 5s。调用方的 OCR 调用很密集，间隔一超过它就得
+    # 重新建连；调大到 75s 才能复用同一条连接（见 README §1.5.13）。
+    timeout_keep_alive: int = 75
+    # 收到 SIGTERM 后等当前请求收尾的宽限时间（秒）。
+    timeout_graceful_shutdown: int = 10
 
 
 class Settings:

@@ -11,5 +11,12 @@ services:
       - ./src:/app/src
     environment:
       - CONFIG_FILE=/app/src/config/config_cpu.yaml
+      # 容器默认 UTC, 而访问日志(podman logs --timestamps)是宿主 +08:00 —— 同一份日志里
+      # 两种时区会让人对不上时间线; 统一成本地时区(日志时间与开发机/调用方一致)
+      - TZ=Asia/Shanghai
+    # 内存上限：把 OOM 关进容器 —— 超限只死容器里的 python，不再拖垮整台 1.7G 主机
+    # （历史上 16:18 / 16:41 / 16:43 三次都是整机 OOM，把 uvicorn 一起打死）。
+    # 注：本仓库约定"手动拉起"，所以容器被杀后仍需人工 bash start_service_cpu.sh。
+    mem_limit: 1200m
     stop_signal: SIGTERM
     stop_grace_period: 30s

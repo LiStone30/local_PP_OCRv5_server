@@ -286,6 +286,51 @@ PaddleOCR 侧 [Issue#17869](https://github.com/PaddlePaddle/PaddleOCR/issues/178
 > 所以 `server.py` 里那几个「文本分块」调参已被移除（见 commit `c398d25`）。
 > GPU 版若要用新代码，需要确认它镜像内的 paddleocr 版本，否则原先的调参行为会丢失。
 
+### 1.5.13 服务层调优：keep-alive / 串行推理 / 内存上限（2026-09-28）
+
+**起因**：调用方 `game-automation` 出现过两次 `OCR 服务不可达 … ConnectionResetError(10054)`，
+而服务端**一条日志都没有**（连接根本没到 ECS）。定性过程见 `game-automation/docs/ocr_api.md` §九，
+结论：不是 OOM，而是连接在到达 ECS 之前就被中间盒重置，诱因是调用方**每次调用都新建连接**
+（一次 40s 的导航打出 100+ 条短连接）。调用方已改成"复用一条连接 + 连接层失败有界重试"，
+服务端配合改了三处：
+
+| 改动 | 位置 | 为什么 |
+|---|---|---|
+| `timeout_keep_alive: 75` | `src/config/config_cpu.yaml` → `server`，由 `src/server.py` 传给 `uvicorn.run` | uvicorn 默认 **5s**：调用间隔一超过它，调用方的连接池就得重连。调到 75s 后实测 63 次调用只占 **1~2 条**连接 |
+| `/ocr`：`async def` → `def` + 推理锁 | `src/server.py` | 原先 `async def` 里直接跑 `predict()`：**推理期间整个事件循环被占住**（新连接读不进来）。改同步端点后 FastAPI 丢线程池执行，事件循环空出来；再用 `_infer_lock` 把真正的推理串行化，保住"单 worker 排队"的内存特性（1.7G 无 swap，并发推理会成倍吃内存） |
+| `mem_limit: 1200m` | `podman-compose-cpu.yml` | 容器原先无内存上限：某个大裁框把内存冲上去就是**整机 OOM**（把 uvicorn 一起打死，历史上 16:18 / 16:41 / 16:43 三次都是这么死的）。加上限后只死容器里的 python |
+
+- 顺带：`except` 里加了 `log.exception(...)`（原先异常只进响应体，服务端日志查不到原因）；
+  单次请求 >5s 记 WARNING、明细记 DEBUG（`OCR_LOG_LEVEL=DEBUG` 打开），与调用方日志同一口径；
+- 容器**仍然没有 restart 策略**（沿用本仓库"手动拉起"的约定）——被 OOM 杀掉后需人工
+  `bash start_service_cpu.sh`；
+- **生效方式**：容器 `bind-mount ./src`，改代码**不用重建镜像**，`podman restart ppocr_v5_server_cpu`
+  即可；但 compose 新增的 `mem_limit` 要重建容器才生效：
+  `podman-compose -f podman-compose-cpu.yml down && bash start_service_cpu.sh`；
+- 自检（在开发机执行）：
+
+```bash
+# 1) 模型确实按 config_cpu.yaml 加载(mobile_det + server_rec)
+ssh -F ~/.ssh/config cloudserver "podman logs --tail 20 ppocr_v5_server_cpu | grep 'Creating model'"
+# 2) 内存上限生效(应显示 1258291200)
+ssh -F ~/.ssh/config cloudserver "podman inspect ppocr_v5_server_cpu --format '{{.HostConfig.Memory}} 重启策略={{.HostConfig.RestartPolicy.Name}}'"
+# 3) keep-alive 生效: 425 次调用只应新增 1 条连接(见 game-automation docs/ocr_api.md §九.3 的计数法)
+```
+
+**上线实测（2026-09-28 20:2x，ECS 上已重建容器生效）**
+
+| 项 | 实测结果 |
+|---|---|
+| keep-alive | **425 次全量体检只占 1 条连接**（nftables DNAT 计数 8 → 9）；调用间隔 6s 时不再重建连接 |
+| 串行 + 非阻塞 | 8 线程 × 2 轮 = 16 次并发调用**零失败**、返回文本完全一致，总耗时 4.94s（推理仍串行） |
+| 内存上限 | 对抗性大裁框（1400×1000，base64 2.2MB）anon 峰值 **948 MiB** / 上限 1200 MiB，容器未被杀；真实载荷（5~90KB）稳态 ~534 MiB |
+| 识别质量 | `tools/check_screens.py -d /mnt/d/ui-dataset/screens` → **425 次调用、退出码 0**：自家样本全中、无跨屏误判、状态层全过（服务层改动不影响识别结果） |
+| 性能 | 小裁框 0.31~0.37s、806×516 约 1.0~1.4s（与改动前一致）；1400×1000 约 8s |
+| 日志 | `WARNING ppocr.server \| OCR 慢: 请求 base64 2941992 B, 耗时 8.04s`，时间戳 +08:00（与访问日志/调用方一致） |
+| 回滚 | 改动前的 5 个文件备份在 ECS `/root/ocr-backup-20260928-2000/`，覆盖回去 + 重建容器即回滚 |
+
+---
+
 ---
 
 ## 2. 数据预处理（在开发机执行）
