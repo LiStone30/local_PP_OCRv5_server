@@ -1,0 +1,19 @@
+# Docker Desktop (Windows) 版：对应原来的 podman-compose.yml
+# 启动: .\start_service.ps1   或   docker compose up -d
+# 停止: docker compose down
+# 日志: docker compose logs -f
+
+services:
+  ppocr-v5-server:
+    image: ppocr_v5_server:latest
+    container_name: ppocr_v5_server
+    ports:
+      - "8118:8118"
+    volumes:
+      - ./models:/app/models
+      - ./src:/app/src
+    gpus: all
+    environment:
+      - TZ=Asia/Shanghai
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
